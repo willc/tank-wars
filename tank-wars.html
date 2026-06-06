@@ -2798,9 +2798,9 @@ function loop(){
     const steps=G.fastForward?6:1;
     for(let s=0;s<steps;s++){
       updateProjs();
-      if(G.state!=='firing') break; // stop early if state changed mid-step
+      updateParticles();
+      if(G.state!=='firing') break;
     }
-    updateParticles();
     updateFires();
     updateNapalmDrops();
     updateFireworks();
