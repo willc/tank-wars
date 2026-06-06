@@ -24,10 +24,6 @@ input[type=range]{flex:1;accent-color:#ff6600;cursor:pointer}
 .colors{display:flex;gap:5px;flex-wrap:wrap}
 .cswatch{width:18px;height:18px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:.15s}
 .cswatch.sel{border-color:#fff;transform:scale(1.2)}
-.god-box{grid-column:1/-1;display:flex;align-items:center;gap:14px;background:rgba(255,210,0,.07);border:1px solid rgba(255,210,0,.25);border-radius:10px;padding:14px 18px}
-.god-box input[type=checkbox]{width:22px;height:22px;accent-color:#ffd700;cursor:pointer;flex-shrink:0}
-.god-box .gtitle{color:#ffd700;font-weight:700;font-size:15px}
-.god-box .gdesc{color:#887700;font-size:11px;margin-top:2px}
 .wind-opts{display:flex;gap:8px}
 .wind-opts label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:13px;color:#aaa}
 #startBtn{margin-top:22px;background:linear-gradient(135deg,#cc1100,#ff6600);border:none;color:#fff;font-size:18px;font-weight:700;padding:15px 70px;border-radius:50px;cursor:pointer;letter-spacing:3px;box-shadow:0 4px 24px rgba(255,80,0,.45);transition:.15s}
@@ -126,6 +122,7 @@ canvas{display:block;pointer-events:none}
 <body>
 
 <div id="startScreen">
+  <div id="godModeToast" style="position:fixed;top:24px;left:50%;transform:translateX(-50%);background:rgba(255,210,0,.15);border:1px solid rgba(255,210,0,.5);border-radius:12px;padding:8px 24px;color:#ffd700;font-weight:700;font-size:15px;letter-spacing:1px;opacity:0;transition:opacity .4s;pointer-events:none;z-index:999"></div>
   <h1>TANK BATTLES</h1>
   <p class="subtitle">THE EARTH WAS SCORCHED BUT THE TANKS ARE BACK</p>
   <div class="setup-wrap">
@@ -2886,6 +2883,30 @@ document.querySelectorAll('input[name=humancount]').forEach(r=>{
   };
 });
 
+// ===== SECRET GOD MODE (Konami code on start screen) =====
+let _godModeUnlocked=false;
+const _konami=['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight','b','a'];
+let _konamiIdx=0;
+document.addEventListener('keydown',e=>{
+  if(document.getElementById('startScreen').style.display==='none') return; // only on start screen
+  if(e.key===_konami[_konamiIdx]){
+    _konamiIdx++;
+    if(_konamiIdx===_konami.length){
+      _konamiIdx=0;
+      _godModeUnlocked=!_godModeUnlocked;
+      const msg=document.getElementById('godModeToast');
+      if(msg){
+        msg.textContent=_godModeUnlocked?'👑 GOD MODE UNLOCKED':'God Mode disabled';
+        msg.style.opacity='1';
+        clearTimeout(msg._t);
+        msg._t=setTimeout(()=>msg.style.opacity='0',2000);
+      }
+    }
+  } else {
+    _konamiIdx=e.key===_konami[0]?1:0;
+  }
+});
+
 // ===== START GAME / MULTI-PLAYER SETUP =====
 // Store game config for multi-step flow
 let gameConfig={};
@@ -2906,6 +2927,7 @@ function showHumanSetupScreen(){
     terrainMode:document.querySelector('input[name=terrain]:checked')?.value||'normal',
     startCash:parseInt(document.querySelector('input[name=startcash]:checked')?.value)||500,
     pregameShop:document.getElementById('pregameShop')?.checked||false,
+    godMode:_godModeUnlocked||false,
     turnTimerSecs:parseInt(document.querySelector('input[name=turntimer]:checked')?.value)||0,
     screenWrap:document.querySelector('input[name=screenwrap]:checked')?.value==='1',
     skyTheme:document.getElementById('skyTheme').value||'night',
@@ -2963,18 +2985,6 @@ function showHumanSetupScreen(){
     });
     playerDiv.appendChild(colorDiv);
 
-    // God Mode toggle for this player
-    const godModeLabel=document.createElement('label');
-    godModeLabel.style.cssText='display:flex;align-items:center;gap:8px;color:#fff;font-size:12px;cursor:pointer;user-select:none';
-    const godModeCheck=document.createElement('input');
-    godModeCheck.type='checkbox';
-    godModeCheck.id=`godMode${i}`;
-    godModeCheck.style.cssText='cursor:pointer;width:16px;height:16px';
-    godModeLabel.appendChild(godModeCheck);
-    const godText=document.createElement('span');
-    godText.textContent='God Mode (unlimited weapons, invincible)';
-    godModeLabel.appendChild(godText);
-    playerDiv.appendChild(godModeLabel);
 
     setupDiv.appendChild(playerDiv);
   }
@@ -3079,41 +3089,22 @@ function startGameFromSetup(){
         colorIdx=idx;
       }
     });
-    const gmEl=document.getElementById(`godMode${i}`);
-    const hasGodMode=gmEl ? gmEl.checked : false;
-    console.log(`Player ${i}: name=${name}, godMode=${hasGodMode}`);
-    humanPlayers.push({name,colorIdx,hasGodMode});
+    humanPlayers.push({name,colorIdx});
   }
 
   // Create tanks: first humanCount are human, rest are AI
   for(let i=0;i<count;i++){
     if(i<humanCount){
-      // Human player - each player has their own God Mode setting
+      // Human player — God Mode only applies to Player 1 (i===0)
       const hData=humanPlayers[i];
-      const inv={};
-
-      // ONLY give unlimited weapons if this specific player has God Mode enabled
-      const playerHasGodMode=(hData.hasGodMode===true);
-      console.log(`Tank ${i}: ${hData.name}, godMode=${playerHasGodMode}, weapons=${playerHasGodMode?'unlimited':'normal'}`);
-
-      if(playerHasGodMode){
-        // Unlimited everything
-        SHOP_WK.forEach(k=>inv[k]=99);
-      } else {
-        // Normal starting inventory
-        inv['missile']=5;
-        inv['parachute']=1;
-      }
-
-      const missileCount=inv['missile']||0;
-      console.log(`Tank ${i}: ${hData.name} - godMode=${playerHasGodMode}, missiles=${missileCount}, money=${playerHasGodMode?99999:gameConfig.startCash}`);
+      const p1GodMode=i===0&&gameConfig.godMode;
       tanks.push({
         name:hData.name,color:TANK_COLORS[hData.colorIdx],isHuman:true,
         hp:gameConfig.startHP,angle:90,power:500,
         curWeapon:'baby_missile',
-        inv:inv,
-        money:playerHasGodMode?99999:gameConfig.startCash,
-        fuel:playerHasGodMode?200:0,
+        inv:buildStartInv(p1GodMode,true),
+        money:p1GodMode?99999:gameConfig.startCash,
+        fuel:p1GodMode?200:0,
         hasChute:false,hasShield:false,wins:0,kills:0,totalKills:0,
         personality:AI_PERSONALITIES[Math.floor(Math.random()*AI_PERSONALITIES.length)],
         damageDealt:0,
@@ -3152,16 +3143,13 @@ function startGameFromSetup(){
     }
   }
 
-  // Check if any human player has God Mode
-  const hasAnyGodMode=humanPlayers.some(p=>p.hasGodMode);
-
   G={
     tanks,state:'playing',projs:[],particles:[],fires:[],
-    wind:0,currentTank:-1,round:1,roundsToWin:gameConfig.roundsToWin,godMode:hasAnyGodMode,windMode:gameConfig.windMode,startHP:gameConfig.startHP,terrainMode:gameConfig.terrainMode,skyTheme:gameConfig.skyTheme,terrainTheme:gameConfig.terrainTheme,turnTimerSecs:gameConfig.turnTimerSecs,screenWrap:gameConfig.screenWrap,napalm_drops:[],pregameShop:gameConfig.pregameShop,
+    wind:0,currentTank:-1,round:1,roundsToWin:gameConfig.roundsToWin,godMode:gameConfig.godMode||false,windMode:gameConfig.windMode,startHP:gameConfig.startHP,terrainMode:gameConfig.terrainMode,skyTheme:gameConfig.skyTheme,terrainTheme:gameConfig.terrainTheme,turnTimerSecs:gameConfig.turnTimerSecs,screenWrap:gameConfig.screenWrap,napalm_drops:[],pregameShop:gameConfig.pregameShop,
   };
 
   SFX.setMuted(!gameConfig.soundOn);
-  document.getElementById('godPill').style.display=hasAnyGodMode?'flex':'none';
+  document.getElementById('godPill').style.display=gameConfig.godMode?'flex':'none';
   document.getElementById('humanSetupScreen').style.display='none';
   document.getElementById('startScreen').style.display='none';
   document.getElementById('gameContainer').style.display='block';
@@ -3209,6 +3197,7 @@ startBtnEl.onclick=function(){
       terrainMode:document.querySelector('input[name=terrain]:checked')?.value||'normal',
       startCash:parseInt(document.querySelector('input[name=startcash]:checked')?.value)||500,
       pregameShop:document.getElementById('pregameShop')?.checked||false,
+      godMode:_godModeUnlocked||false,
       turnTimerSecs:parseInt(document.querySelector('input[name=turntimer]:checked')?.value)||0,
       screenWrap:document.querySelector('input[name=screenwrap]:checked')?.value==='1',
       skyTheme:document.getElementById('skyTheme').value||'night',
@@ -3222,13 +3211,14 @@ startBtnEl.onclick=function(){
 
     for(let i=0;i<gameConfig.count;i++){
       if(i===0){
+        const gm=gameConfig.godMode||false;
         tanks.push({
           name:humanName,color:humanColor,isHuman:true,
           hp:gameConfig.startHP,angle:90,power:500,
           curWeapon:'baby_missile',
-          inv:buildStartInv(false,true),
-          money:gameConfig.startCash,
-          fuel:0,
+          inv:buildStartInv(gm,true),
+          money:gm?99999:gameConfig.startCash,
+          fuel:gm?200:0,
           hasChute:false,hasShield:false,wins:0,kills:0,totalKills:0,
           personality:AI_PERSONALITIES[0],
           damageDealt:0,
@@ -3268,11 +3258,11 @@ startBtnEl.onclick=function(){
 
     G={
       tanks,state:'playing',projs:[],particles:[],fires:[],
-      wind:0,currentTank:-1,round:1,roundsToWin:gameConfig.roundsToWin,godMode:false,windMode:gameConfig.windMode,startHP:gameConfig.startHP,terrainMode:gameConfig.terrainMode,skyTheme:gameConfig.skyTheme,terrainTheme:gameConfig.terrainTheme,turnTimerSecs:gameConfig.turnTimerSecs,screenWrap:gameConfig.screenWrap,napalm_drops:[],
+      wind:0,currentTank:-1,round:1,roundsToWin:gameConfig.roundsToWin,godMode:gameConfig.godMode||false,windMode:gameConfig.windMode,startHP:gameConfig.startHP,terrainMode:gameConfig.terrainMode,skyTheme:gameConfig.skyTheme,terrainTheme:gameConfig.terrainTheme,turnTimerSecs:gameConfig.turnTimerSecs,screenWrap:gameConfig.screenWrap,napalm_drops:[],
     };
 
     SFX.setMuted(!gameConfig.soundOn);
-    document.getElementById('godPill').style.display='none';
+    document.getElementById('godPill').style.display=gameConfig.godMode?'flex':'none';
     document.getElementById('startScreen').style.display='none';
     document.getElementById('gameContainer').style.display='block';
     stopGreensleevesMusic(); // Stop start screen music when game starts
