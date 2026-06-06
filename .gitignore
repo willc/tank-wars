@@ -1,0 +1,6 @@
+# Ignore everything in this directory by default
+*
+# Except tank-wars files
+!tank-wars.html
+!README.md
+!.gitignore
