@@ -555,12 +555,23 @@ const AI_PERSONALITIES = [
   }
 ];
 
+const _quoteHistory={};
 function getRandomQuote(personality, type='startTurn'){
   if(!personality || !personality[type] || personality[type].length === 0){
     return type === 'startTurn' ? 'It is time!' : 'Farewell!';
   }
   const quotes = personality[type];
-  return quotes[Math.floor(Math.random() * quotes.length)];
+  const key = (personality.name||'?')+':'+type;
+  if(!_quoteHistory[key]) _quoteHistory[key]=[];
+  const history = _quoteHistory[key];
+  // Avoid the last 1/3 of quotes seen (min 3, max 8)
+  const avoidCount = Math.min(8, Math.max(3, Math.floor(quotes.length/3)));
+  const available = quotes.filter(q => !history.slice(-avoidCount).includes(q));
+  const pool = available.length > 0 ? available : quotes;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  history.push(pick);
+  if(history.length > quotes.length) history.shift(); // keep history bounded
+  return pick;
 }
 
 const WD = {
@@ -2169,6 +2180,8 @@ function advanceTurn(){
     }
     setTimeout(()=>doAITurn(t),G.fastForward?50:1300);
   } else {
+    G.fastForward=false; // always pause FF when it's the human's turn
+    document.getElementById('ffPill').style.display='none';
     showMessage(`${t.name}'s turn!`,700);
     startTurnTimer();
   }
@@ -2442,7 +2455,7 @@ function openShop(pregame){
 
 function startRound(){
   G.round=(G.round||1)+1;
-  G.fastForward=false;
+  // preserve G.fastForward — don't reset it here
   G._terrainTheme=null;
   document.getElementById('hurryModal').style.display='none';
   document.getElementById('ffPill').style.display='none';
