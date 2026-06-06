@@ -2671,6 +2671,9 @@ document.getElementById('ffBtn').onclick=()=>{
   G.fastForward=true;
   document.getElementById('hurryModal').style.display='none';
   document.getElementById('ffPill').style.display='flex';
+  // Resume AI turns — human is dead, game was paused waiting for this choice
+  G.state='aiming'; // reset from roundEnd so advanceTurn can run
+  advanceTurn();
 };
 
 document.getElementById('skipRoundBtn').onclick=()=>{
