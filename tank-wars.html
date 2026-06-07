@@ -265,6 +265,7 @@ canvas{display:block;pointer-events:none}
     <div id="roundTracker" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:4px 13px;font-size:13px;font-weight:700;color:#ccc;letter-spacing:1px">Round 1</div>
     <div class="godpill" id="godPill" style="display:none">GOD MODE</div>
     <div id="turnTimer">⏱ <span id="timerNum">30</span>s</div>
+    <button id="muteBtn" onclick="toggleMute()" style="pointer-events:all;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 11px;font-size:16px;cursor:pointer;color:#fff;margin-left:auto">🔊</button>
   </div>
   <div id="ctrlBar">
     <div class="cgrp"><span class="clabel">Angle</span><input id="angleVal" type="number" min="1" max="179" value="90" style="width:70px;padding:2px 6px;font-size:17px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:4px;text-align:center"></div>
@@ -684,6 +685,7 @@ const SFX = (() => {
   };
   return {
     setMuted(v){ _muted=v; },
+    getMuted(){ return _muted; },
     fire()    { if(!chk())return; sweep(90,280,'sawtooth',0.08,0.35); sweep(280,55,'sawtooth',0.14,0.2); },
     explode(r){ if(!chk())return; const v=Math.min(0.9,r/80); boom(0.7,150+r*2,v); tone(55,'sine',0.5,v*.6); },
     hit()     { if(!chk())return; boom(0.25,500,0.45); tone(180,'square',0.12,0.2); },
@@ -711,6 +713,15 @@ const SFX = (() => {
     },
   };
 })();
+
+function toggleMute(){
+  const muted = !SFX.getMuted();
+  SFX.setMuted(muted);
+  if(muted){ stopGreensleevesMusic(); }
+  else { if(document.getElementById('startScreen').style.display!=='none') playGreensleevesMusic(); }
+  const btn=document.getElementById('muteBtn');
+  if(btn) btn.textContent=muted?'🔇':'🔊';
+}
 
 // ===== MUSIC =====
 let musicAc = null;
@@ -2149,12 +2160,31 @@ function doAITurn(tank){
   const target=liveTanks.reduce((a,b)=>Math.abs(b.x-tank.x)<Math.abs(a.x-tank.x)?b:a);
   const wkey=pickAIWeapon(tank);
   const wd=WD[wkey];
-  // handle use-type
-  const ff=G.fastForward;
+  // handle use-type — apply effect then immediately pick a real weapon and fire
   if(wd.type==='use'){
-    useItem(tank,wd.eff);
+    useItem(tank,wkey==='shield'?'shield':wkey==='battery'?'battery':'chute');
     consumeWeapon(tank,wkey);
-    setTimeout(()=>advanceTurn(),ff?50:800);
+    // now pick an offensive weapon and continue the turn
+    tank.inv[wkey]=(tank.inv[wkey]||0); // already consumed above
+    const ff=G.fastForward;
+    const offKey=pickAIWeapon(tank); // re-pick now that use item is gone
+    const offWd=WD[offKey];
+    if(offWd.type==='use'){ // edge case: still only use items
+      setTimeout(()=>advanceTurn(),ff?50:800);
+      return;
+    }
+    // fire with the offensive weapon
+    const {angle,power}=findAIShot(tank,liveTanks.reduce((a,b)=>Math.abs(b.x-tank.x)<Math.abs(a.x-tank.x)?b:a));
+    const sk=AI_SKILL[tank.skill]||AI_SKILL.medium;
+    tank.angle=Math.max(1,Math.min(179,angle+(Math.random()-.5)*sk.aimVar*2));
+    tank.power=Math.max(50,Math.min(MAX_POW,power*(1+(Math.random()-.5)*sk.powVar*2)));
+    const ar=tank.angle*Math.PI/180;
+    const vx2=Math.cos(ar)*tank.power*0.06, vy2=-Math.sin(ar)*tank.power*0.06;
+    setTimeout(()=>{
+      spawnProjectile({x:tank.x+Math.cos(ar)*24,y:tank.y-14-Math.sin(ar)*24,vx:vx2,vy:vy2,wkey:offKey,ownerIdx:G.tanks.indexOf(tank),isRoller:offWd.type==='roller'});
+      consumeWeapon(tank,offKey);
+      G.state='firing';
+    },ff?50:600);
     return;
   }
   const {angle,power}=findAIShot(tank,target);
@@ -2467,18 +2497,18 @@ function openShop(pregame){
     ];
     let budget = t.money || 0;
     let passes = 0;
-    while(budget > 0 && passes < 5){
+    while(budget > 0 && passes < 20){
       let bought = false;
       for(const wk of aiShopList){
         if(!WD[wk] || !SHOP_WK.includes(wk)) continue;
-        const packSize = wk==='baby_nuke'?10:5;
-        const packPrice = WD[wk].price * packSize;
+        const unitPrice = WD[wk].price;
+        if(unitPrice === 0) continue;
         // Cap inventory so AI doesn't hoard everything
         const currentQty = t.inv[wk]||0;
-        if(currentQty >= 20) continue;
-        if(budget >= packPrice){
-          budget -= packPrice;
-          t.inv[wk] = currentQty + packSize;
+        if(currentQty >= 10) continue;
+        if(budget >= unitPrice){
+          budget -= unitPrice;
+          t.inv[wk] = currentQty + 1;
           bought = true;
         }
       }
@@ -2609,13 +2639,10 @@ function updateHUD(){
   }
   // health bars
   const hb=document.getElementById('healthBars');
-  const roundMult=Math.pow(3,(G.round||1)-1);
   hb.innerHTML=G.tanks.filter(t=>t.hp>0).map(t=>{
-    const roundEarnings=Math.round((500*(t.kills||0)+(t.damageDealt||0)*3+Math.floor(t.hp*5))*roundMult);
-    const total=(t.money||0)+roundEarnings;
     return`<div class="hchip">
       <div class="dot" style="background:${t.color}"></div>
-      <span>${t.name}: ${Math.ceil(t.hp)} &nbsp;<span style="color:#ffd700;font-weight:700">$${total}</span></span>
+      <span>${t.name}: ${Math.ceil(t.hp)} &nbsp;<span style="color:#ffd700;font-weight:700">$${t.money||0}</span></span>
     </div>`;
   }).join('');
 }
@@ -2663,14 +2690,14 @@ function fire(){
   if(!t||!t.isHuman||G.state!=='aiming')return;
   stopTurnTimer();
   const wd=WD[t.curWeapon]||WD.baby_missile;
-  // use items
+  // use items — shield/battery/chute don't consume the turn, just apply and keep aiming
   if(wd.type==='use'){
     useItem(t,wd.eff);
     consumeWeapon(t,t.curWeapon);
-    if(!WD[t.curWeapon].inf&&(t.inv[t.curWeapon]||0)<=0) t.curWeapon='baby_missile';
+    t.curWeapon='baby_missile'; // switch back to a firable weapon
     updateCtrlBar();
-    G.state='firing';
-    setTimeout(()=>advanceTurn(),800);
+    updateHUD();
+    G.state='aiming'; // stay in aiming — player still fires this turn
     return;
   }
   SFX.fire();
