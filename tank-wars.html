@@ -2158,6 +2158,7 @@ function doAITurn(tank){
   const liveTanks=G.tanks.filter((t,i)=>t.hp>0&&G.tanks.indexOf(t)!==G.tanks.indexOf(tank));
   if(!liveTanks.length){advanceTurn();return;}
   const target=liveTanks.reduce((a,b)=>Math.abs(b.x-tank.x)<Math.abs(a.x-tank.x)?b:a);
+  const ff=G.fastForward;
   const wkey=pickAIWeapon(tank);
   const wd=WD[wkey];
   // handle use-type — apply effect then immediately pick a real weapon and fire
@@ -2166,7 +2167,6 @@ function doAITurn(tank){
     consumeWeapon(tank,wkey);
     // now pick an offensive weapon and continue the turn
     tank.inv[wkey]=(tank.inv[wkey]||0); // already consumed above
-    const ff=G.fastForward;
     const offKey=pickAIWeapon(tank); // re-pick now that use item is gone
     const offWd=WD[offKey];
     if(offWd.type==='use'){ // edge case: still only use items
