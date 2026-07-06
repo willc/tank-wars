@@ -2874,7 +2874,11 @@ function render(){
 }
 
 // ===== MAIN LOOP =====
-function loop(){
+let _lastLoopTime=0;
+function loop(ts=0){
+  // Cap physics at 60fps regardless of monitor refresh rate
+  if(ts-_lastLoopTime < 16){requestAnimationFrame(loop);return;}
+  _lastLoopTime=ts;
   if(!G){
     requestAnimationFrame(loop);
     return;
