@@ -22,6 +22,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Tank Wars — Scorched Earth Artillery Game</title>
 <meta name="description" content="A Scorched Earth-style artillery game. 2-8 players, 24 weapons, AI opponents with personality, and an economy system. Play free in your browser.">
 
@@ -98,7 +99,7 @@ canvas{display:block;pointer-events:none}
 .wpItem:hover,.wpItem.active{background:rgba(255,255,255,.1)}
 .wpItem .wqty{color:#889;font-size:12px}
 .wpItem .winf{color:#44ff88;font-size:12px}
-#shopModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto;padding:20px}
+#shopModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:200;overflow-y:auto;padding:20px;-webkit-overflow-scrolling:touch}
 #shopInner{max-width:920px;margin:0 auto;background:#0d0d22;border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:28px}
 #shopInner h2{font-size:26px;margin-bottom:4px}
 .smoney{color:#ffd700;font-size:22px;font-weight:700;margin-bottom:20px}
@@ -157,6 +158,55 @@ canvas{display:block;pointer-events:none}
 #turnTimer{display:none;background:rgba(255,150,0,.15);border:1px solid rgba(255,150,0,.35);border-radius:16px;padding:4px 12px;font-size:13px;font-weight:700;color:#ffaa33}
 /* Move hint */
 #moveHint{display:none;font-size:18px;color:#4af}
+
+/* ===== MOBILE / LANDSCAPE ===== */
+.step-btn{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:8px;color:#fff;font-size:20px;font-weight:700;width:38px;height:38px;cursor:pointer;touch-action:manipulation;display:flex;align-items:center;justify-content:center;line-height:1;user-select:none;-webkit-user-select:none}
+.step-btn:active{background:rgba(255,255,255,.3)}
+#angleDisplay,#powerDisplay{font-weight:700;font-size:18px;min-width:44px;text-align:center}
+#kbHint{font-size:13px;color:#667}
+
+@media (max-height:520px) and (orientation:landscape){
+  /* Start screen */
+  #startScreen{padding:8px 12px;overflow-y:auto}
+  #startScreen h1{font-size:22px;margin:4px 0 2px}
+  #startScreen .subtitle{font-size:11px;margin-bottom:8px}
+  .setup-wrap{gap:10px}
+  .panel{padding:10px 14px}
+  .panel h3{font-size:13px;margin-bottom:8px}
+  .tslot{padding:6px}
+  .opts-grid{grid-template-columns:1fr 1fr;gap:6px 16px}
+  #startBtn{padding:10px 40px;font-size:15px;margin-top:10px}
+
+  /* HUD */
+  #hud{padding:4px 8px;gap:6px}
+  #turnBadge{font-size:14px;padding:3px 10px}
+  #windBar{padding:3px 8px;gap:4px}
+  .wlabel{font-size:11px}
+  #windArrow{font-size:16px;width:16px}
+  .wtrack{width:44px;height:5px}
+  #windNum{font-size:14px;min-width:24px}
+  .hchip{font-size:12px;padding:3px 7px}
+  .hchip .dot{width:8px;height:8px}
+  #roundTracker{font-size:10px;padding:2px 8px}
+  #muteBtn{font-size:13px;padding:2px 7px}
+  #turnTimer{font-size:11px;padding:2px 8px}
+
+  /* CtrlBar */
+  #ctrlBar{padding:6px 10px;gap:8px}
+  .cgrp{gap:4px;font-size:14px}
+  .clabel{font-size:11px}
+  .step-btn{width:32px;height:32px;font-size:17px}
+  #angleDisplay,#powerDisplay{font-size:14px;min-width:36px}
+  #wepBtn{font-size:13px;padding:5px 9px;height:34px;line-height:34px}
+  #fireBtn{padding:8px 22px;font-size:13px}
+  #moveHint{font-size:13px}
+  #kbHint{display:none}
+
+  /* Panels */
+  #lbInner{padding:16px 20px;min-width:unset}
+  #shopInner{padding:14px 16px}
+  #shopInner h2{font-size:18px}
+}
 </style>
 </head>
 <body>
@@ -268,13 +318,25 @@ canvas{display:block;pointer-events:none}
     <button id="muteBtn" onclick="toggleMute()" style="pointer-events:all;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:20px;padding:4px 11px;font-size:16px;cursor:pointer;color:#fff;margin-left:auto">🔊</button>
   </div>
   <div id="ctrlBar">
-    <div class="cgrp"><span class="clabel">Angle</span><input id="angleVal" type="number" min="1" max="179" value="90" style="width:70px;padding:2px 6px;font-size:17px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:4px;text-align:center"></div>
-    <div class="cgrp"><span class="clabel">Power</span><input id="powerVal" type="number" min="50" max="1000" value="500" style="width:70px;padding:2px 6px;font-size:17px;font-weight:700;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:4px;text-align:center"></div>
+    <div class="cgrp">
+      <span class="clabel">Angle</span>
+      <button class="step-btn" id="angleMinus" ontouchstart="startStep('angle',-1)" ontouchend="stopStep()" onmousedown="startStep('angle',-1)" onmouseup="stopStep()">−</button>
+      <span id="angleDisplay">90</span>
+      <button class="step-btn" id="anglePlus" ontouchstart="startStep('angle',1)" ontouchend="stopStep()" onmousedown="startStep('angle',1)" onmouseup="stopStep()">+</button>
+      <input id="angleVal" type="number" min="1" max="179" value="90" style="display:none">
+    </div>
+    <div class="cgrp">
+      <span class="clabel">Power</span>
+      <button class="step-btn" id="powerMinus" ontouchstart="startStep('power',-1)" ontouchend="stopStep()" onmousedown="startStep('power',-1)" onmouseup="stopStep()">−</button>
+      <span id="powerDisplay">500</span>
+      <button class="step-btn" id="powerPlus" ontouchstart="startStep('power',1)" ontouchend="stopStep()" onmousedown="startStep('power',1)" onmouseup="stopStep()">+</button>
+      <input id="powerVal" type="number" min="50" max="1000" value="500" style="display:none">
+    </div>
     <div id="wepBtn" role="button" tabindex="0"><span style="pointer-events:none;">Baby Missile ▲</span></div>
     <div class="spacer"></div>
     <div id="ffPill">⚡ FAST FORWARD &nbsp;<button id="endNowBtn" style="background:rgba(255,60,60,.25);border:1px solid rgba(255,100,100,.5);color:#ff8888;font-size:11px;font-weight:700;padding:2px 10px;border-radius:10px;cursor:pointer;pointer-events:all">End Now</button></div>
     <div id="moveHint">A ← Move → D</div>
-    <div style="font-size:13px;color:#667">← → Aim &nbsp; ↑ ↓ Power &nbsp; W Weapon &nbsp; Space Fire</div>
+    <div id="kbHint" style="font-size:13px;color:#667">← → Aim &nbsp; ↑ ↓ Power &nbsp; W Weapon &nbsp; Space Fire</div>
     <button id="quitBtn">Admit Defeat</button>
     <button id="fireBtn">FIRE</button>
   </div>
@@ -2653,9 +2715,13 @@ function updateCtrlBar(){
   const t=G.tanks[G.currentTank];
   if(!t||!t.isHuman)return;
   const angleVal=document.getElementById('angleVal');
-  if(angleVal&&document.activeElement!==angleVal) angleVal.value=Math.round(t.angle);
+  const a=Math.round(t.angle);
+  if(angleVal&&document.activeElement!==angleVal) angleVal.value=a;
+  document.getElementById('angleDisplay').textContent=a+'°';
   const powerVal=document.getElementById('powerVal');
-  if(powerVal&&document.activeElement!==powerVal) powerVal.value=Math.round(t.power);
+  const p=Math.round(t.power);
+  if(powerVal&&document.activeElement!==powerVal) powerVal.value=p;
+  document.getElementById('powerDisplay').textContent=p;
   const wd=WD[t.curWeapon]||WD.baby_missile;
   const wepBtn=document.getElementById('wepBtn');
   const span=wepBtn.querySelector('span')||wepBtn;
@@ -2663,6 +2729,28 @@ function updateCtrlBar(){
   document.getElementById('fireBtn').disabled=G.state!=='aiming';
   // Move hint when player has fuel
   document.getElementById('moveHint').style.display=(t.fuel||0)>0?'block':'none';
+}
+
+// ===== STEP BUTTONS (hold to repeat) =====
+let _stepInterval=null,_stepTimeout=null;
+function startStep(type,dir){
+  stopStep();
+  applyStep(type,dir);
+  _stepTimeout=setTimeout(()=>{
+    _stepInterval=setInterval(()=>applyStep(type,dir),80);
+  },400);
+}
+function stopStep(){ clearInterval(_stepInterval); clearTimeout(_stepTimeout); _stepInterval=null; _stepTimeout=null; }
+function applyStep(type,dir){
+  if(!G||!G.tanks||G.currentTank<0)return;
+  const t=G.tanks[G.currentTank];
+  if(!t||!t.isHuman||G.state!=='aiming')return;
+  if(type==='angle'){
+    t.angle=Math.max(1,Math.min(179,t.angle+dir*2));
+  } else {
+    t.power=Math.max(50,Math.min(1000,t.power+dir*20));
+  }
+  updateCtrlBar();
 }
 
 // ===== MESSAGE =====
@@ -3390,6 +3478,32 @@ function fitCanvasToWindow(){
   canvas.style.top='0';
 }
 window.addEventListener('resize',()=>{ fitCanvasToWindow(); });
+
+// ===== CANVAS TOUCH: swipe to aim =====
+(function(){
+  let tx0=0,ty0=0,angle0=0,power0=0;
+  const gc=document.getElementById('gameContainer');
+  gc.addEventListener('touchstart',e=>{
+    if(e.target.closest('#ctrlBar,#hud,#wpPicker,#shopModal,#leaderboard,#hurryModal,#msgOverlay')) return;
+    if(!G||G.state!=='aiming') return;
+    e.preventDefault();
+    const touch=e.touches[0];
+    tx0=touch.clientX; ty0=touch.clientY;
+    const t=G.tanks[G.currentTank];
+    angle0=t?t.angle:90; power0=t?t.power:500;
+  },{passive:false});
+  gc.addEventListener('touchmove',e=>{
+    if(!G||G.state!=='aiming') return;
+    e.preventDefault();
+    const touch=e.touches[0];
+    const dx=touch.clientX-tx0, dy=touch.clientY-ty0;
+    const t=G.tanks[G.currentTank];
+    if(!t||!t.isHuman) return;
+    t.angle=Math.max(1,Math.min(179,angle0-dx*0.4));
+    t.power=Math.max(50,Math.min(1000,power0-dy*1.5));
+    updateCtrlBar();
+  },{passive:false});
+})();
 
 // Start music on first user interaction (browsers block autoplay)
 let musicStarted = false;
