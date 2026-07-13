@@ -23,6 +23,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Tank Wars — Scorched Earth Artillery Game</title>
 <meta name="description" content="A Scorched Earth-style artillery game. 2-8 players, 24 weapons, AI opponents with personality, and an economy system. Play free in your browser.">
 
@@ -191,16 +194,15 @@ canvas{display:block;pointer-events:none}
   #muteBtn{font-size:13px;padding:2px 7px}
   #turnTimer{font-size:11px;padding:2px 8px}
 
-  /* CtrlBar */
-  #ctrlBar{padding:6px 10px;gap:8px}
-  .cgrp{gap:4px;font-size:14px}
-  .clabel{font-size:11px}
-  .step-btn{width:32px;height:32px;font-size:17px}
-  #angleDisplay,#powerDisplay{font-size:14px;min-width:36px}
-  #wepBtn{font-size:13px;padding:5px 9px;height:34px;line-height:34px}
-  #fireBtn{padding:8px 22px;font-size:13px}
-  #moveHint{font-size:13px}
-  #kbHint{display:none}
+  /* CtrlBar — single nowrap row, fire always visible */
+  #ctrlBar{padding:6px 10px;gap:6px;flex-wrap:nowrap;align-items:center}
+  #kbHint,#quitBtn,#moveHint,.spacer{display:none!important}
+  .cgrp{gap:3px;font-size:13px}
+  .clabel{font-size:10px}
+  .step-btn{width:30px;height:30px;font-size:16px;border-radius:6px}
+  #angleDisplay,#powerDisplay{font-size:13px;min-width:32px}
+  #wepBtn{font-size:12px;padding:4px 8px;height:30px;line-height:30px;white-space:nowrap;overflow:hidden;max-width:110px;text-overflow:ellipsis}
+  #fireBtn{padding:0;width:52px;height:36px;font-size:13px;border-radius:18px;flex-shrink:0}
 
   /* Panels */
   #lbInner{padding:16px 20px;min-width:unset}
@@ -285,6 +287,9 @@ canvas{display:block;pointer-events:none}
   </div>
   <button id="startBtn">FIRE IT UP</button>
   <div style="margin-top:16px;font-size:12px;color:#445;letter-spacing:1px">Created by <a href="https://intergalacticrobots.app" target="_blank" style="color:#667;text-decoration:underline">Intergalactic Robots</a></div>
+  <div id="iosHint" style="display:none;margin-top:12px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 16px;font-size:12px;color:#aaa;letter-spacing:.5px">
+    📱 For fullscreen on iPhone: tap <strong style="color:#ccc">Share</strong> → <strong style="color:#ccc">Add to Home Screen</strong>
+  </div>
 </div>
 
 <!-- Human Player Customization Screen -->
@@ -3503,6 +3508,16 @@ window.addEventListener('resize',()=>{ fitCanvasToWindow(); });
     t.power=Math.max(50,Math.min(1000,power0-dy*1.5));
     updateCtrlBar();
   },{passive:false});
+})();
+
+// Show iOS fullscreen hint on mobile Safari (not when already standalone)
+(function(){
+  const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone=('standalone' in navigator && navigator.standalone);
+  if(isIOS && !isStandalone){
+    const el=document.getElementById('iosHint');
+    if(el) el.style.display='block';
+  }
 })();
 
 // Start music on first user interaction (browsers block autoplay)
